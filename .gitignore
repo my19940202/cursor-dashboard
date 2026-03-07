@@ -1,0 +1,9 @@
+node_modules
+.next
+
+# 环境变量文件
+.env
+.env.local
+.env*.local
+.env.production
+.env.production.local

@@ -1,0 +1,7 @@
+{
+  "name": "thinking-corpus",
+  "version": "1.0.0",
+  "description": "Capture AI Agent thinking blocks and save as English corpus (JSONL)",
+  "author": { "name": "xishengbo" },
+  "keywords": ["thinking", "corpus", "agent", "nlp", "english"]
+}

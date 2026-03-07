@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "afterAgentResponse": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "afterAgentThought": [
+      { "command": "node ./scripts/capture-thinking.mjs" },
+      { "command": "node ./scripts/capture-event.mjs" }
+    ],
+    "postToolUse": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "postToolUseFailure": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "sessionStart": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "sessionEnd": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "stop": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "preCompact": [{ "command": "node ./scripts/capture-event.mjs" }],
+    "afterFileEdit": [{ "command": "node ./scripts/capture-event.mjs" }]
+  }
+}
