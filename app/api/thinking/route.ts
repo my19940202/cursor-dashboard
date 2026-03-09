@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const model = searchParams.get("model") ?? undefined;
+  const highlight = searchParams.get("highlight") ?? undefined;
 
-  const { groups, total } = getThinking({ page, pageSize, from, to, model });
+  const { groups, total } = getThinking({ page, pageSize, from, to, model, highlight });
   return Response.json({ groups, total });
 }

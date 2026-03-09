@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 const NAV_ITEMS = [
   { href: "/", label: "首页" },
   { href: "/thinking", label: "Thinking语料" },
+  { href: "/vocab", label: "词频统计" },
   { href: "/sessions", label: "会话记录" },
 ];
 

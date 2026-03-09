@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useSearchParams } from "next/navigation";
 
 type ThinkingRecord = {
   text: string;
@@ -19,6 +20,16 @@ type ThinkingGroup = {
   conversation_id: string;
   items: ThinkingRecord[];
 };
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function applyHighlightMarkdown(text: string, highlight: string): string {
+  if (!highlight) return text;
+  const pattern = new RegExp(`(${escapeRegExp(highlight)})`, "gi");
+  return text.replace(pattern, "**$1**");
+}
 
 function stripMarkdownForTTS(text: string): string {
   return text
@@ -84,7 +95,7 @@ const markdownComponents = {
   pre: ({ children }: { children?: React.ReactNode }) => (
     <pre className="mb-2 overflow-x-auto rounded bg-base-300 p-3 text-sm">{children}</pre>
   ),
-  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold">{children}</strong>,
+  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-primary">{children}</strong>,
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="link link-primary">
       {children}
@@ -133,6 +144,7 @@ function ThinkingItem({
   defaultOpen,
   playing,
   onTogglePlay,
+  highlight,
 }: {
   record: ThinkingRecord;
   index: number;
@@ -140,6 +152,7 @@ function ThinkingItem({
   defaultOpen: boolean;
   playing: boolean;
   onTogglePlay: () => void;
+  highlight: string;
 }) {
   return (
     <div className="collapse collapse-arrow bg-base-100 border border-base-300">
@@ -154,7 +167,7 @@ function ThinkingItem({
       <div className="collapse-content relative text-sm pr-12">
         <div className="pt-1 break-words">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {record.text}
+            {applyHighlightMarkdown(record.text, highlight)}
           </ReactMarkdown>
         </div>
         <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -172,23 +185,39 @@ function GroupCard({
   groupIndex,
   speakingId,
   onSpeak,
+  highlight,
 }: {
   group: ThinkingGroup;
   groupIndex: number;
   speakingId: string | null;
   onSpeak: (id: string, text: string) => void;
+  highlight: string;
 }) {
   const accordionName = `thinking-accordion-${groupIndex}`;
+  const [showFullPrompt, setShowFullPrompt] = useState(false);
+  const prompt = group.user_prompt ?? "";
+  const isLongPrompt = prompt.length > 200;
 
   return (
     <li className="p-4">
       {group.user_prompt && (
         <div className="rounded-lg border border-info/30 bg-info/10 p-3 mb-3">
-          <span className="mb-1 block text-xs font-medium text-info">
-            我的问题
-          </span>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="block text-xs font-medium text-info">
+              我的问题
+            </span>
+            {isLongPrompt && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs px-1 text-[11px]"
+                onClick={() => setShowFullPrompt((v) => !v)}
+              >
+                {showFullPrompt ? "收起" : "展开"}
+              </button>
+            )}
+          </div>
           <p className="whitespace-pre-wrap break-words text-sm">
-            {group.user_prompt}
+            {showFullPrompt || !isLongPrompt ? prompt : `${prompt.slice(0, 200)}...`}
           </p>
         </div>
       )}
@@ -205,9 +234,10 @@ function GroupCard({
               record={r}
               index={i}
               accordionName={accordionName}
-              defaultOpen={i === 0}
+              defaultOpen={false}
               playing={speakingId === itemId}
               onTogglePlay={() => onSpeak(itemId, r.text)}
+              highlight={highlight}
             />
           );
         })}
@@ -223,10 +253,18 @@ export function ThinkingList() {
   const [loading, setLoading] = useState(true);
   const pageSize = 10;
   const { speakingId, speak } = useTTS();
+  const searchParams = useSearchParams();
+  const highlight = searchParams.get("highlight")?.toLowerCase().trim() || "";
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/thinking?page=${page}&pageSize=${pageSize}`)
+    const url = new URL("/api/thinking", window.location.origin);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("pageSize", String(pageSize));
+    if (highlight) {
+      url.searchParams.set("highlight", highlight);
+    }
+    fetch(url.toString())
       .then((r) => r.json())
       .then((res) => {
         setGroups(res.groups ?? []);
@@ -234,13 +272,22 @@ export function ThinkingList() {
       })
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, highlight]);
 
-  if (loading && groups.length === 0) {
+  const visibleGroups = useMemo(() => {
+    if (!highlight) return groups;
+    const q = highlight.toLowerCase();
+    return groups.filter((g) => {
+      if (g.user_prompt && g.user_prompt.toLowerCase().includes(q)) return true;
+      return g.items.some((r) => r.text.toLowerCase().includes(q));
+    });
+  }, [groups, highlight]);
+
+  if (loading && visibleGroups.length === 0) {
     return <div className="card bg-base-200 p-6"><span className="loading loading-spinner loading-sm"></span> 加载中…</div>;
   }
 
-  if (groups.length === 0) {
+  if (visibleGroups.length === 0) {
     return (
       <div className="card bg-base-200 p-6">
         <p className="opacity-60">暂无 Thinking 记录。请使用带 thinking 的模型（如 Claude Opus thinking）并确保 Hooks 已采集。</p>
@@ -252,15 +299,25 @@ export function ThinkingList() {
 
   return (
     <div className="space-y-4">
+      {highlight && (
+        <div className="alert alert-info flex items-center justify-between text-sm">
+          <span>
+            当前高亮词：
+            <span className="font-mono font-semibold">{highlight}</span>
+            ，仅展示包含该词的 Thinking 记录。
+          </span>
+        </div>
+      )}
       <div className="card bg-base-200">
         <ul className="divide-y divide-base-300">
-          {groups.map((g, i) => (
+          {visibleGroups.map((g, i) => (
             <GroupCard
               key={`${g.conversation_id}-${g.prompt_timestamp ?? i}`}
               group={g}
               groupIndex={i}
               speakingId={speakingId}
               onSpeak={speak}
+              highlight={highlight}
             />
           ))}
         </ul>

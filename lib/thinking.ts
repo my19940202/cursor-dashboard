@@ -125,8 +125,9 @@ export function getThinking(params: {
   from?: string;
   to?: string;
   model?: string;
+  highlight?: string;
 }): { groups: ThinkingGroup[]; total: number } {
-  const { page = 1, pageSize = 20, from, to, model } = params;
+  const { page = 1, pageSize = 20, from, to, model, highlight } = params;
   const filePath = getCorpusPath();
   let items = readJsonlLines<ThinkingRecord>(filePath);
 
@@ -138,9 +139,24 @@ export function getThinking(params: {
   items.reverse();
 
   const allGroups = groupByPrompt(items);
-  const total = allGroups.length;
+
+  const filteredGroups = (() => {
+    if (!highlight) return allGroups;
+    const q = highlight.toLowerCase();
+    return allGroups
+      .filter((g) => {
+        if (g.user_prompt && g.user_prompt.toLowerCase().includes(q)) return true;
+        return g.items.some((r) => r.text.toLowerCase().includes(q));
+      })
+      .map((g) => ({
+        ...g,
+        items: g.items.filter((r) => r.text.toLowerCase().includes(q)),
+      }));
+  })();
+
+  const total = filteredGroups.length;
   const start = (page - 1) * pageSize;
-  const groups = allGroups.slice(start, start + pageSize);
+  const groups = filteredGroups.slice(start, start + pageSize);
 
   return { groups, total };
 }

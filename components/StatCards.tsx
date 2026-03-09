@@ -49,11 +49,11 @@ export function StatCards({ period = "week" }: { period?: "day" | "week" | "mont
     { label: "会话数", value: stats.sessions, href: "/sessions" },
     { label: "Thinking 条数", value: stats.thoughts, href: "/thinking" },
     { label: "文件编辑", value: stats.fileEdits },
-    { label: "上下文 token 约", value: stats.contextTokens > 0 ? stats.contextTokens.toLocaleString() : "—" },
+    // { label: "上下文 token 约", value: stats.contextTokens > 0 ? stats.contextTokens.toLocaleString() : "—" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
       {cards.map(({ label, value, href }) => (
         <div
           key={label}
